@@ -83,7 +83,7 @@
     "testEnvironment": "node"
   },
   "lint-staged": {
-    "**/*.{ts}": [
+    "**/*.ts": [
       "prettier --write",
       "eslint --fix --quiet"
     ]
