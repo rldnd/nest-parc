@@ -1,0 +1,338 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model BlockPost {
+  postId      String
+  generatorId String
+  User        User   @relation(fields: [generatorId], references: [id])
+  Post        Post   @relation(fields: [postId], references: [id])
+
+  @@id([generatorId, postId])
+  @@index([postId], map: "BlockPost_postId_fkey")
+}
+
+model BlockUser {
+  generatorId                      String
+  targetId                         String
+  User_BlockUser_generatorIdToUser User   @relation("BlockUser_generatorIdToUser", fields: [generatorId], references: [id])
+  User_BlockUser_targetIdToUser    User   @relation("BlockUser_targetIdToUser", fields: [targetId], references: [id])
+
+  @@id([generatorId, targetId])
+  @@index([targetId], map: "BlockUser_targetId_fkey")
+}
+
+model Bookmark {
+  userId         String
+  postId         String
+  folderId       String?
+  id             String          @id
+  createdAt      DateTime        @default(now())
+  deletedAt      DateTime?
+  updatedAt      DateTime
+  BookmarkFolder BookmarkFolder? @relation(fields: [folderId], references: [id])
+  Post           Post            @relation(fields: [postId], references: [id])
+  User           User            @relation(fields: [userId], references: [id])
+
+  @@index([folderId], map: "Bookmark_folderId_fkey")
+  @@index([postId], map: "Bookmark_postId_fkey")
+  @@index([userId], map: "Bookmark_userId_fkey")
+}
+
+model BookmarkFolder {
+  id        String     @id
+  name      String
+  userId    String
+  createdAt DateTime   @default(now())
+  deletedAt DateTime?
+  updatedAt DateTime
+  User      User       @relation(fields: [userId], references: [id])
+  Bookmark  Bookmark[]
+
+  @@index([userId], map: "BookmarkFolder_userId_fkey")
+}
+
+model Image {
+  id        String          @id
+  imageType Image_imageType
+  url       String          @unique
+  createdAt DateTime        @default(now())
+  deletedAt DateTime?
+  updatedAt DateTime        @default(now())
+  postId    String?
+  userId    String?         @unique
+  Post      Post?           @relation(fields: [postId], references: [id])
+  User      User?           @relation(fields: [userId], references: [id])
+  Place     Place[]
+
+  @@index([postId], map: "Image_postId_fkey")
+}
+
+model Notification {
+  id                                  String                  @id
+  title                               String
+  noticeType                          Notification_noticeType @default(EVENT)
+  targetId                            String
+  generatorId                         String?
+  body                                String?
+  createdAt                           DateTime                @default(now())
+  deletedAt                           DateTime?
+  postId                              String?
+  isRead                              Boolean
+  User_Notification_generatorIdToUser User?                   @relation("Notification_generatorIdToUser", fields: [generatorId], references: [id])
+  Post                                Post?                   @relation(fields: [postId], references: [id])
+  User_Notification_targetIdToUser    User                    @relation("Notification_targetIdToUser", fields: [targetId], references: [id])
+
+  @@index([generatorId], map: "Notification_generatorId_fkey")
+  @@index([postId], map: "Notification_postId_fkey")
+  @@index([targetId], map: "Notification_targetId_fkey")
+}
+
+model Place {
+  id                      String    @id
+  administrativeAreaLevel String
+  country                 String?
+  name                    String
+  sublocalityLevel1       String
+  sublocalityLevel2       String
+  thumbnailId             String?
+  createdAt               DateTime  @default(now())
+  deletedAt               DateTime?
+  updatedAt               DateTime
+  latitude                String
+  longitude               String
+  Image                   Image?    @relation(fields: [thumbnailId], references: [id])
+  Post                    Post[]
+
+  @@unique([name, administrativeAreaLevel, sublocalityLevel1, sublocalityLevel2])
+  @@index([thumbnailId], map: "Place_thumbnailId_fkey")
+}
+
+model Post {
+  id              String          @id
+  title           String
+  placeId         String?
+  content         String?         @db.LongText
+  isAdvertisement Boolean         @default(false)
+  postType        Post_postType   @default(ME)
+  reviewType      Post_reviewType @default(ONE)
+  userId          String
+  createdAt       DateTime        @default(now())
+  deletedAt       DateTime?
+  updatedAt       DateTime
+  thumbnailUrl    String
+  Place           Place?          @relation(fields: [placeId], references: [id])
+  User            User            @relation(fields: [userId], references: [id])
+  BlockPost       BlockPost[]
+  Bookmark        Bookmark[]
+  Image           Image[]
+  Notification    Notification[]
+  PostComment     PostComment[]
+  PostLike        PostLike[]
+  PostTag         PostTag[]
+  Report          Report?
+  Review          Review[]
+
+  @@index([placeId], map: "Post_placeId_fkey")
+  @@index([userId], map: "Post_userId_fkey")
+}
+
+model PostComment {
+  id                String            @id
+  content           String
+  parentId          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  deletedAt         DateTime?
+  userId            String            @default("pomeUser")
+  postId            String            @default("pomePost")
+  PostComment       PostComment?      @relation("PostCommentToPostComment", fields: [parentId], references: [id])
+  Post              Post              @relation(fields: [postId], references: [id])
+  User              User              @relation(fields: [userId], references: [id])
+  other_PostComment PostComment[]     @relation("PostCommentToPostComment")
+  PostCommentLike   PostCommentLike[]
+  Report            Report?
+
+  @@index([parentId], map: "PostComment_parentId_fkey")
+  @@index([postId], map: "PostComment_postId_fkey")
+  @@index([userId], map: "PostComment_userId_fkey")
+}
+
+model PostCommentLike {
+  commentId   String
+  userId      String
+  PostComment PostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  User        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId], map: "PostCommentLike_userId_fkey")
+}
+
+model PostLike {
+  userId String
+  postId String
+  Post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId], map: "PostLike_postId_fkey")
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  Post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  Tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId], map: "PostTag_tagId_fkey")
+}
+
+model Report {
+  id                            String       @id
+  createdAt                     DateTime     @default(now())
+  userId                        String?      @unique
+  postId                        String?      @unique
+  postCommentId                 String?      @unique
+  generatorId                   String
+  User_Report_generatorIdToUser User         @relation("Report_generatorIdToUser", fields: [generatorId], references: [id])
+  PostComment                   PostComment? @relation(fields: [postCommentId], references: [id])
+  Post                          Post?        @relation(fields: [postId], references: [id])
+  User_Report_userIdToUser      User?        @relation("Report_userIdToUser", fields: [userId], references: [id])
+
+  @@index([generatorId], map: "Report_generatorId_fkey")
+}
+
+model Review {
+  id      String @id
+  content String
+  userId  String @default("pomeUser")
+  postId  String @default("pomePost")
+  Post    Post   @relation(fields: [postId], references: [id])
+  User    User   @relation(fields: [userId], references: [id])
+
+  @@index([postId], map: "Review_postId_fkey")
+  @@index([userId], map: "Review_userId_fkey")
+}
+
+model Tag {
+  id        String    @id
+  createdAt DateTime  @default(now())
+  name      String
+  PostTag   PostTag[]
+}
+
+model User {
+  id                                          String            @id
+  email                                       String?           @unique
+  nickname                                    String?           @unique @db.VarChar(255)
+  birthday                                    String?
+  ipAddress                                   String?           @db.VarChar(255)
+  socialType                                  User_socialType   @default(KAKAO)
+  pushToken                                   String?
+  createdAt                                   DateTime          @default(now())
+  updatedAt                                   DateTime
+  deletedAt                                   DateTime?
+  phoneNumber                                 String?
+  socialId                                    String            @unique
+  role                                        User_role         @default(USER)
+  emailCertified                              Boolean           @default(false)
+  BlockPost                                   BlockPost[]
+  BlockUser_BlockUser_generatorIdToUser       BlockUser[]       @relation("BlockUser_generatorIdToUser")
+  BlockUser_BlockUser_targetIdToUser          BlockUser[]       @relation("BlockUser_targetIdToUser")
+  Bookmark                                    Bookmark[]
+  BookmarkFolder                              BookmarkFolder[]
+  Image                                       Image?
+  Notification_Notification_generatorIdToUser Notification[]    @relation("Notification_generatorIdToUser")
+  Notification_Notification_targetIdToUser    Notification[]    @relation("Notification_targetIdToUser")
+  Post                                        Post[]
+  PostComment                                 PostComment[]
+  PostCommentLike                             PostCommentLike[]
+  PostLike                                    PostLike[]
+  Report_Report_generatorIdToUser             Report[]          @relation("Report_generatorIdToUser")
+  Report_Report_userIdToUser                  Report?           @relation("Report_userIdToUser")
+  Review                                      Review[]
+  UserLog                                     UserLog[]
+  UserNotification                            UserNotification?
+  UserPrefernce                               UserPrefernce?
+  UserTerm                                    UserTerm?
+}
+
+model UserLog {
+  id        String   @id
+  keyword   String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  logType   String
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "UserLog_userId_fkey")
+}
+
+model UserNotification {
+  id       String  @id
+  like     Boolean @default(true)
+  comment  Boolean @default(true)
+  bookmark Boolean @default(true)
+  event    Boolean @default(true)
+  userId   String? @unique
+  User     User?   @relation(fields: [userId], references: [id])
+}
+
+model UserPrefernce {
+  id     String  @id
+  name   String  @db.Text
+  userId String? @unique
+  User   User?   @relation(fields: [userId], references: [id])
+}
+
+model UserTerm {
+  id        String  @id
+  privacy   Boolean @default(true)
+  marketing Boolean @default(true)
+  userId    String? @unique
+  service   Boolean @default(true)
+  User      User?   @relation(fields: [userId], references: [id])
+}
+
+enum Image_imageType {
+  PROFILE
+  POST
+  COMMON
+}
+
+enum Notification_noticeType {
+  LIKE
+  COMMENT
+  EVENT
+  BOOKMARK
+  ADVERTISEMENT
+}
+
+enum Post_postType {
+  ME
+  YOU
+}
+
+enum User_socialType {
+  KAKAO
+  GOOGLE
+  APPLE
+}
+
+enum Post_reviewType {
+  ONE
+  THREE
+}
+
+enum User_role {
+  USER
+  INFLUENCER
+  ADMIN
+}
